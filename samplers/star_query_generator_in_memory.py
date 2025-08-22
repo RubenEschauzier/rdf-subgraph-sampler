@@ -8,6 +8,7 @@ import sys
 import gzip
 import re
 import json
+import orjson
 import random
 import requests
 import hashlib
@@ -202,7 +203,7 @@ def hash_query_pattern(predicates, object_instantiation_pattern):
 
 def generate_star_query(star_data, n_triples, prob_predicate=1.0, min_objects_instantiated=0,
                         max_objects_instantiated=0, endpoint_url=None, default_graph_uri=None, get_cardinality=False,
-                        max_object_combinations=5, seen_query_hashes=None ):
+                        max_object_combinations=5, seen_query_hashes=None):
     """
     Generate a star query from a star data structure with configurable object instantiation.
     
@@ -385,15 +386,13 @@ def get_queries(graphfile, dataset_name, n_triples=10, n_queries=1000,
     available_stars = suitable_stars.copy()
     random.shuffle(available_stars)
     star_index = 0
-
+    n_generated_since_in_shuffle = 0
+    n_generations_no_new_query = 0
     with tqdm(total=n_queries, desc="Generating unique queries") as pbar:
         while len(testdata) < n_queries:
 
             # Select star without replacement
             if star_index >= len(available_stars):
-                print(failed_generations)
-                print(duplicate_skipped)
-                print()
                 # If we've exhausted all stars, reshuffle and start over
                 if duplicate_skipped == 0:
                     print(
@@ -405,17 +404,36 @@ def get_queries(graphfile, dataset_name, n_triples=10, n_queries=1000,
                     random.shuffle(available_stars)
                     star_index = 0
                     print(f"\nReshuffling stars (found {duplicate_skipped} duplicates so far)...")
+
+                if n_generated_since_in_shuffle == 0:
+                    print("Warning: no generated stars since shuffle")
+                    n_generations_no_new_query += 1
+                    if n_generations_no_new_query > 25:
+                        print("Exceeded 25 generation loops without non-duplicate query.")
+                        break
+                n_generated_since_in_shuffle = 0
+
             star = available_stars[star_index]
+            if star['n_attempts'] > 10 and star['n_generated'] / star['n_attempts'] < .05:
+                print("Star is failing to produce new star queries")
+                print(star)
+                star_index += 1
+                continue
+
             star_index += 1
 
             # Generate query from this star with object instantiation
             query_data, skipped = generate_star_query(star, n_triples, p_predicate, min_objects_instantiated,
-                                             max_objects_instantiated, endpoint_url, default_graph_uri=default_graph_uri,
-                                             get_cardinality=get_cardinality, seen_query_hashes=seen_query_hashes)
+                                                      max_objects_instantiated, endpoint_url,
+                                                      default_graph_uri=default_graph_uri,
+                                                      get_cardinality=get_cardinality,
+                                                      seen_query_hashes=seen_query_hashes)
 
             if query_data:
                 query_hash = query_data['query_hash']
                 duplicate_skipped += skipped
+                n_generated_since_in_shuffle += 1
+                star['n_generated'] += 1
 
                 # # Check if we've already seen this query pattern
                 # if query_hash in seen_query_hashes:
@@ -431,13 +449,15 @@ def get_queries(graphfile, dataset_name, n_triples=10, n_queries=1000,
                 if get_cardinality and query_data['y'] == -1:
                     cardinality_failures += 1
             else:
+                star['n_attempts'] += 1
                 failed_generations += 1
+                duplicate_skipped += 1
 
             # Save periodically
-            if outfile and len(testdata) % 100 == 0 and len(testdata) > 0:
+            if outfile and len(testdata) % 1000 == 0 and len(testdata) > 0:
                 filename = f"{dataset_name}_stars_{now.strftime('%Y-%m-%d_%H-%M-%S')}_{n_triples}.json"
                 with open(filename, "w") as fp:
-                    json.dump(testdata, fp, indent=2)
+                    fp.write(orjson.dumps(testdata).decode())
 
     print(f"- Unique queries generated: {len(testdata)}")
     print(f"- Duplicates skipped: {duplicate_skipped}")

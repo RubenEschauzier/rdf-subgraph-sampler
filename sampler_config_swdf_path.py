@@ -1,13 +1,13 @@
 
 # General configuration
 ENDPOINT = "http://localhost:8890/sparql"  # URL of the SPARQL endpoint where the KG is hosted (required)
-DEFAULT_GRAPH_URI = "http://localhost:8890/watdiv"
+DEFAULT_GRAPH_URI = "http://localhost:8890/swdf"
 SHAPE = "path"  # Shape of subgraphs to generate: "path", "star", "flower", "snowflake"
-DATASET = "WatDiv"  # Dataset name (used for output file)
+DATASET = "swdf"  # Dataset name (used for output file)
 USE_CACHE = True  # Whether to use cached search structures for in memory generation
 IN_MEMORY = True  # Whether to use in-memory search and generation instead of sparql endpoint
 
-RDF_FILE_PATH = "data/watdiv.nt"  # Path to RDF file to use
+RDF_FILE_PATH = "data/swdf.nt"  # Path to RDF file to use
 
 GET_CARDINALITY = True  # Whether to compute cardinality for generated queries in-memory
 
