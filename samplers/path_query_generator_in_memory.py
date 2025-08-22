@@ -290,10 +290,18 @@ def _save_queries(generated: List[dict], dataset_name: str, n_triples: int,
     return fn
 
 
-def _get_cardinality(endpoint_url: str, where_clause: str, timeout: int = FINAL_QUERY_TIMEOUT) -> int:
+def _get_cardinality(endpoint_url: str, where_clause: str, timeout: int = FINAL_QUERY_TIMEOUT,
+                     default_graph_uri = None) -> int:
     query = f"SELECT (COUNT(*) as ?c) WHERE {{ {where_clause} }}"
     try:
-        r = requests.get(endpoint_url, params={'query': query, 'format': 'json'}, timeout=timeout)
+        params = {
+            'query': query,
+            'format': 'json',
+        }
+        if default_graph_uri:
+            params['default-graph-uri'] = default_graph_uri
+
+        r = requests.get(endpoint_url, params=params, timeout=timeout)
         if r.status_code == 200:
             bindings = r.json().get('results', {}).get('bindings', [])
             if bindings and 'c' in bindings[0]:
@@ -308,6 +316,7 @@ def get_queries(rdf_file: str,
                 n_triples: int = 1,
                 n_queries: int = 10_000,
                 endpoint_url: Optional[str] = None,
+                default_graph_uri = None,
                 outfile: bool = True,
                 get_cardinality: bool = False,
                 use_cache: bool = True,
@@ -389,7 +398,7 @@ def get_queries(rdf_file: str,
                             
                             y = -1
                             if endpoint_url and get_cardinality:
-                                y = _get_cardinality(endpoint_url, where_clause)
+                                y = _get_cardinality(endpoint_url, where_clause, default_graph_uri=default_graph_uri)
 
                             triple_list = [t.split() for t in where_clause.split(" . ")]
                             generated.append({
@@ -452,7 +461,7 @@ def get_queries(rdf_file: str,
 
                 y = -1
                 if endpoint_url and get_cardinality:
-                    y = _get_cardinality(endpoint_url, where_clause)
+                    y = _get_cardinality(endpoint_url, where_clause, default_graph_uri=default_graph_uri)
 
                 triple_list = [t.split() for t in where_clause.split(" . ")]
                 generated.append({

@@ -8,7 +8,7 @@ from samplers import path_query_generator_in_memory as path_sampler_in_memory
 #from samplers import complex_query_generator as complex_sampler
 
 # Import configuration
-from batch_sampler_config import *
+from sampler_config_watdiv_star import *
 
 
 def run_sampler_for_config(size, queries, config):
@@ -28,7 +28,8 @@ def run_sampler_for_config(size, queries, config):
         if config['IN_MEMORY']:
             print("Using In Memory star generation...")
             file_sampler_in_memory.get_queries(
-                None, dataset_name, size, queries, config['ENDPOINT'], 
+                None, dataset_name, size, queries, config['ENDPOINT'],
+                default_graph_uri=config['DEFAULT_GRAPH_URI'],
                 use_cache=config['USE_CACHE'], 
                 min_objects_instantiated=min_objects_instantiated,
                 max_objects_instantiated=max_objects_instantiated,
@@ -48,6 +49,7 @@ def run_sampler_for_config(size, queries, config):
                 n_triples=size,
                 n_queries=queries,
                 endpoint_url=config['ENDPOINT'] if config['GET_CARDINALITY'] else None,
+                default_graph_uri=config['DEFAULT_GRAPH_URI'],
                 outfile=True,
                 get_cardinality=config['GET_CARDINALITY'],
                 use_cache=config['USE_CACHE'],
@@ -87,7 +89,8 @@ if __name__ == "__main__":
         'SAMPLING_METHOD': SAMPLING_METHOD,
         'P_EDGE': P_EDGE,
         'P_NODE': P_NODE,
-        'P_START_END': P_START_END
+        'P_START_END': P_START_END,
+        'DEFAULT_GRAPH_URI': DEFAULT_GRAPH_URI
     }
 
     print(f"Starting batch generation for {len(QUERY_CONFIGURATIONS)} configurations...")
