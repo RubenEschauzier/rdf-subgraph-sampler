@@ -8,20 +8,21 @@ import itertools  # Added for generating pair-wise inequality combinations
 # SEED_PATH_LEN: Tune according the capacity of the endpoint
 SEED_PATH_LEN = 6
 # SEED_BATCHES: Should be high (over 300) for short path queries, and small (10) for long path queries
-SEED_BATCHES = 10
+SEED_BATCHES = 1
 # ENDPOINT_LIMIT: Should be high for short path queries, adjust according to the capacity of the endpoint
-ENDPOINT_LIMIT = 1 # 5000
+ENDPOINT_LIMIT = 10000 # 5000
 # QUERIES_PER_SEED: Set up to 1 for short path queries, 3 for long path queries (with length >= 5)
-QUERIES_PER_SEED = 2
+QUERIES_PER_SEED = 3
 # P_EDGE: Can stay like this
 P_EDGE = 0.9
-# P_EDGE: Can stay like this
+# P_NODE: Can stay like this
 P_NODE = 0.3
 # FINAL_QUERY_TIMEOUT: Can be set up higher for long path queries
-FINAL_QUERY_TIMEOUT = 3
+FINAL_QUERY_TIMEOUT = 10
 # P_START_END: Probability of instantiating the start or end of the path
 P_START_END = 0.3
-
+# DEFAULT_GRAPH_URI Default graph uri to query
+DEFAULT_GRAPH_URI = "http://localhost:8890/yago"
 
 def generate_template(n_triples, start=1):
     where = ""
@@ -33,13 +34,13 @@ def generate_template(n_triples, start=1):
 def get_seed_paths(path, endpoint_url, path_length):
     project = ["?p"+str(i) for i in range(1, path_length+1)]
     query = "SELECT DISTINCT " + ' '.join(project) + " WHERE { " + path + " } " + \
-            "ORDER BY ASC(bif:rnd(2000000000)) " + "LIMIT " + str(ENDPOINT_LIMIT)
+            "" + "LIMIT " + str(ENDPOINT_LIMIT)
     
     print(f"Querying endpoint: {endpoint_url}")
     print(f"Query: {query}")
     
     r = requests.get(endpoint_url,
-                     params={'query': query, 'format': 'json'})
+                     params={'query': query, 'format': 'json','default-graph-uri': DEFAULT_GRAPH_URI})
     
     print(f"Status code: {r.status_code}")
     print(f"Response headers: {r.headers}")
@@ -120,7 +121,7 @@ def get_queries(graphfile, dataset_name, n_triples=1, n_queries=30000, endpoint_
 
             rj = requests.get(endpoint_url,
                               params={'query': "SELECT * WHERE { " + query_j + query_expansion + " } LIMIT 1000",
-                                      'format': 'json'},
+                                      'format': 'json','default-graph-uri': DEFAULT_GRAPH_URI},
                               timeout=8)
 
             if rj.status_code == 200:
@@ -143,7 +144,7 @@ def get_queries(graphfile, dataset_name, n_triples=1, n_queries=30000, endpoint_
                     # Get cardinality of query
                     rn = requests.get(endpoint_url,
                                       params={'query': "SELECT COUNT(*) as ?res WHERE { " + final_query + " }",
-                                              'format': 'json'},
+                                              'format': 'json', 'default-graph-uri': DEFAULT_GRAPH_URI},
                                       timeout=FINAL_QUERY_TIMEOUT)
                     if rn.status_code == 200:
                         qres2 = rn.json()
@@ -198,8 +199,7 @@ def _build_path_ask_query(length: int, distinct_nodes: bool = True) -> str:
 
     return f"ASK WHERE {{\n  {triple_lines}{filter_part}\n}}"
 
-
-def _path_exists(endpoint_url: str, length: int, distinct_nodes: bool = True, timeout: int = 10) -> bool:
+def _path_exists(endpoint_url: str, length: int, distinct_nodes: bool = True, timeout: int = 100) -> bool:
     """Return True iff the KG accessible at *endpoint_url* contains a path of
     exact *length* edges. If *distinct_nodes* is True, the nodes must all be
     different. Handles network / parsing errors gracefully by returning
@@ -210,7 +210,7 @@ def _path_exists(endpoint_url: str, length: int, distinct_nodes: bool = True, ti
     try:
         r = requests.get(
             endpoint_url,
-            params={'query': ask_query, 'format': 'json'},
+            params={'query': ask_query, 'format': 'json', 'default-graph-uri': DEFAULT_GRAPH_URI},
             timeout=timeout
         )
         if r.status_code != 200:
@@ -224,6 +224,6 @@ def _path_exists(endpoint_url: str, length: int, distinct_nodes: bool = True, ti
 
 
 if __name__ == "__main__":
-    get_queries(None, "gcare-yago", n_triples=3, n_queries=6000,
-                 endpoint_url="http://localhost:8896/sparql", outfile=True)
+    get_queries(None, "yago", n_triples=8, n_queries=20000,
+                 endpoint_url="http://localhost:8890/sparql", outfile=True)
 
